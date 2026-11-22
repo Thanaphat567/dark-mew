@@ -1,0 +1,265 @@
+
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#080808">
+<title>DARK MEW — Music Player</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;background:#080808;color:#fff;
+ font-family:Arial,sans-serif;min-height:100vh;
+}
+header{
+ padding:24px 20px;border-bottom:1px solid #222;
+ display:flex;justify-content:space-between;align-items:center;
+}
+.logo{font-size:25px;font-weight:900;letter-spacing:3px}
+.logo span{color:#999}
+.status{font-size:11px;color:#aaa;letter-spacing:2px}
+main{max-width:850px;margin:auto;padding:25px 18px 170px}
+h1{font-size:30px;margin:15px 0 8px}
+.sub{color:#888;font-size:14px}
+.search{
+ width:100%;padding:15px;margin:24px 0;
+ border:1px solid #292929;border-radius:12px;
+ background:#121212;color:white;font-size:15px;outline:none;
+}
+.upload{
+ display:block;text-align:center;padding:24px;
+ border:1px dashed #444;border-radius:15px;
+ background:#111;color:white;cursor:pointer;
+}
+.upload strong{display:block;font-size:16px;margin-bottom:7px}
+.upload small{color:#888}
+.upload input{display:none}
+.section{margin-top:32px}
+.section h2{font-size:17px;margin-bottom:15px}
+.track{
+ display:flex;align-items:center;gap:14px;
+ padding:13px;border-bottom:1px solid #202020;
+ cursor:pointer;border-radius:9px;
+}
+.track:active{background:#191919}
+.cover{
+ width:48px;height:48px;border-radius:9px;
+ background:linear-gradient(135deg,#292929,#090909);
+ display:grid;place-items:center;font-size:19px;
+}
+.info{flex:1;min-width:0}
+.info b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.info small{color:#888;display:block;margin-top:5px}
+.playicon{color:#aaa}
+.empty{text-align:center;color:#777;padding:30px 10px;font-size:14px}
+.player{
+ position:fixed;bottom:0;left:0;right:0;
+ background:#111;border-top:1px solid #303030;
+ padding:15px 18px 22px;z-index:5;
+}
+.player-inner{max-width:850px;margin:auto}
+.now{display:flex;align-items:center;gap:12px}
+.now .info b{font-size:13px}
+.controls{display:flex;align-items:center;justify-content:center;gap:25px;margin:15px}
+button{
+ border:0;background:none;color:white;cursor:pointer;
+}
+.control{font-size:23px}
+.mainplay{
+ width:48px;height:48px;border-radius:50%;
+ background:white;color:black;font-size:20px;
+}
+.progress{width:100%;accent-color:white;cursor:pointer}
+.times{display:flex;justify-content:space-between;color:#888;font-size:11px}
+.volume{display:flex;justify-content:center;align-items:center;gap:10px;margin-top:8px}
+.volume input{width:100px;accent-color:white}
+@media(min-width:600px){
+ main{padding-top:45px}
+ .player{padding-bottom:18px}
+}
+</style>
+</head>
+<body>
+<header>
+ <div class="logo">DARK <span>MEW</span></div>
+ <div class="status">MUSIC PLAYER</div>
+</header>
+
+<main>
+ <div class="sub">YOUR PERSONAL MUSIC SPACE</div>
+ <h1>Music Library.</h1>
+ <div class="sub">เพลงของคุณ ในพื้นที่ของคุณ</div>
+
+ <input class="search" id="search" placeholder="ค้นหาเพลง..." />
+
+ <label class="upload">
+  <strong>＋ เพิ่มเพลงของคุณ</strong>
+  <small>เลือกไฟล์เสียงจากโทรศัพท์</small>
+  <input type="file" id="files" accept="audio/*" multiple>
+ </label>
+
+ <div class="section">
+  <h2>YOUR PLAYLIST</h2>
+  <div id="list">
+   <div class="empty">ยังไม่มีเพลง<br>กดเพิ่มเพลงเพื่อเริ่มต้น</div>
+  </div>
+ </div>
+</main>
+
+<div class="player">
+ <div class="player-inner">
+  <div class="now">
+   <div class="cover">♫</div>
+   <div class="info">
+    <b id="song">ยังไม่ได้เลือกเพลง</b>
+    <small id="artist">DARK MEW PLAYER</small>
+   </div>
+  </div>
+
+  <div class="controls">
+   <button class="control" id="prev">⏮</button>
+   <button class="mainplay" id="toggle">▶</button>
+   <button class="control" id="next">⏭</button>
+  </div>
+
+  <input class="progress" type="range" id="progress" min="0" max="100" value="0">
+  <div class="times">
+   <span id="current">0:00</span>
+   <span id="duration">0:00</span>
+  </div>
+  <div class="volume">
+   <span>♪</span>
+   <input type="range" id="volume" min="0" max="1" step="0.01" value="0.8">
+  </div>
+ </div>
+</div>
+
+<audio id="audio"></audio>
+
+<script>
+const audio=document.getElementById('audio');
+const files=document.getElementById('files');
+const list=document.getElementById('list');
+const search=document.getElementById('search');
+const toggle=document.getElementById('toggle');
+const progress=document.getElementById('progress');
+
+let songs=[];
+let currentIndex=-1;
+
+function time(s){
+ if(!Number.isFinite(s))return '0:00';
+ return Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
+}
+
+function render(){
+ const q=search.value.toLowerCase();
+ const filtered=songs.map((s,i)=>({...s,index:i}))
+ .filter(s=>s.name.toLowerCase().includes(q));
+
+ list.innerHTML='';
+ if(!filtered.length){
+ list.innerHTML='<div class="empty">ไม่พบเพลง</div>';
+ return;
+ }
+
+ filtered.forEach(s=>{
+ const item=document.createElement('div');
+ item.className='track';
+ const cover=document.createElement('div');
+ cover.className='cover';
+ cover.textContent='♫';
+ const info=document.createElement('div');
+ info.className='info';
+ const name=document.createElement('b');
+ name.textContent=s.name;
+ const desc=document.createElement('small');
+ desc.textContent='LOCAL MUSIC';
+ info.append(name,desc);
+ const icon=document.createElement('span');
+ icon.className='playicon';
+ icon.textContent=currentIndex===s.index?'♪':'▶';
+ item.append(cover,info,icon);
+ item.onclick=()=>play(s.index);
+ list.append(item);
+ });
+}
+
+function play(index){
+ if(index<0||index>=songs.length)return;
+ currentIndex=index;
+ audio.src=songs[index].url;
+ audio.play().then(()=>{
+ toggle.textContent='Ⅱ';
+ }).catch(()=>{
+ toggle.textContent='▶';
+ });
+ document.getElementById('song').textContent=songs[index].name;
+ document.getElementById('artist').textContent='DARK MEW PLAYER';
+ render();
+}
+
+files.onchange=()=>{
+ [...files.files].forEach(file=>{
+ if(!file.type.startsWith('audio/'))return;
+ songs.push({
+ name:file.name.replace(/\.[^/.]+$/,''),
+ url:URL.createObjectURL(file)
+ });
+ });
+ render();
+ files.value='';
+};
+
+toggle.onclick=()=>{
+ if(currentIndex===-1){
+ if(songs.length)play(0);
+ return;
+ }
+ if(audio.paused){
+ audio.play();
+ toggle.textContent='Ⅱ';
+ }else{
+ audio.pause();
+ toggle.textContent='▶';
+ }
+};
+
+document.getElementById('next').onclick=()=>{
+ if(songs.length)play((currentIndex+1)%songs.length);
+};
+
+document.getElementById('prev').onclick=()=>{
+ if(songs.length)play((currentIndex-1+songs.length)%songs.length);
+};
+
+audio.ontimeupdate=()=>{
+ if(audio.duration){
+ progress.value=audio.currentTime/audio.duration*100;
+ document.getElementById('current').textContent=time(audio.currentTime);
+ document.getElementById('duration').textContent=time(audio.duration);
+ }
+};
+
+progress.oninput=()=>{
+ if(audio.duration)audio.currentTime=progress.value/100*audio.duration;
+};
+
+audio.onended=()=>{
+ if(songs.length)play((currentIndex+1)%songs.length);
+};
+
+audio.onpause=()=>toggle.textContent='▶';
+audio.onplay=()=>toggle.textContent='Ⅱ';
+
+document.getElementById('volume').oninput=e=>{
+ audio.volume=Number(e.target.value);
+};
+
+audio.volume=0.8;
+search.oninput=render;
+</script>
+</body>
+  </html>
+  
